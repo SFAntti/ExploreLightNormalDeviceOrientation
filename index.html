@@ -253,7 +253,7 @@
           x = Math.sin( event.gamma * Math.PI / 180 );
 
           // beta is the front-to-back tilt in degrees, where front is positive
-          y = Math.sin( event.gamma * Math.PI / 180 );
+          y = Math.sin( event.beta * Math.PI / 180 );
 
           uniforms.uLightNormal.value.set( x, y, 1.0 );
           group.normalsNeedUpdate = true;
