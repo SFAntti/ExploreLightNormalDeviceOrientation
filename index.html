@@ -1,0 +1,270 @@
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<title>Explore Light Normal - shader circles + three.js webgl</title>
+		<meta charset="utf-8">
+<!--    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0"> -->
+    <meta name="viewport" content="width=device-width">
+    <style>
+      body {
+        color: #cccccc;
+        font-family:Monospace;
+        font-size:13px;
+        text-align:center;
+
+        background-color: #050505;
+        margin: 0px;
+        overflow: hidden;
+      }
+
+      #info {
+        position: absolute;
+        top: 0px; width: 100%;
+        padding: 5px;
+      }
+
+      a {
+        color: #0080ff;
+      }
+
+    </style>
+
+	</head>
+
+	<body>
+
+    <div id="container"></div>
+
+		<script src="js/d3.min.js" charset="utf-8"></script>
+    <script src="js/three.min.js"></script>
+    <script src="js/stats.min.js"></script>
+
+    <script id="vs" type="x-shader/x-vertex" >
+      uniform vec3 uLightNormal;
+      varying vec2 vUv;
+      varying vec3 vLightNormal;
+      //varying vec4 vColor;
+
+      void main(void)
+      {
+        vUv = uv;
+        vLightNormal = uLightNormal;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      }
+    </script>
+
+    <script id="fs" type="x-shader/x-fragment" >
+      varying vec2 vUv;
+      varying vec3 vLightNormal;
+
+      void main(void) {
+        //gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+
+        vec2 pos = vUv;
+        if( length( pos ) > 1.0)
+          discard;
+
+        float r = 1.0;
+        float x = pos.x;
+        float y = pos.y;
+        float z = sqrt( r*r - x*x - y*y );
+
+        vec3 normal = normalize( vec3( x, y, z ) );
+
+        //vec3 vertex_light_position = vec3( 1.0, 0.0, 1.0 );
+
+        float diffuse_value = max(dot(normal, vLightNormal), 0.0);
+
+        //gl_FragColor = vec4( normal, 1.0 );
+
+        gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0) * diffuse_value;
+      }
+    </script>
+
+		<script>
+
+    var width = 720,
+        height = 720;
+
+    var i=0;
+    var nodes = d3.range(200).map(function() { return {radius: Math.pow(Math.random(), 3) * 20 + 10}; }),
+        root = nodes[0];
+
+    root.radius = 0;
+    root.fixed = true;
+
+    var force = d3.layout.force()
+        .gravity(0.05)
+        .charge(function(d, i) { return i ? 0 : -2000; })
+        .nodes(nodes)
+        .size([width, height]);
+
+      root.radius = 0;  
+      root.fixed = true;
+      root.x = 0;
+      root.y = 0;
+
+      n = nodes.length;
+      for (i = 1; i < n; ++i) {
+        d = nodes[i];
+        d.x = 0;
+        d.y = 0;
+      }
+
+      force.start();
+
+      var scene = new THREE.Scene();
+      var camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+      camera.position.z = 600;
+      camera.position.y = 360;
+      camera.position.x = 360;
+
+      var renderer = new THREE.WebGLRenderer();
+      renderer.setSize(width, height);
+
+      container = document.getElementById( 'container' );
+      container.appendChild( renderer.domElement );
+
+      stats = new Stats();
+      stats.domElement.style.position = 'absolute';
+      stats.domElement.style.top = '0px';
+      container.appendChild( stats.domElement );
+
+      var quad = new THREE.Shape();
+      quad.moveTo( -1, -1 ); 
+      quad.lineTo( -1,  1 ); 
+      quad.lineTo(  1,  1 ); 
+      quad.lineTo(  1, -1 ); 
+      quad.lineTo( -1, -1 );
+
+      var geometry = new THREE.ShapeGeometry( quad );
+
+      var uniforms = {
+        "uLightNormal" : { type: "v3", value: new THREE.Vector3( 0, 0, 1.0 ) }
+      };
+
+      var material = new THREE.ShaderMaterial({
+         uniforms: uniforms,
+         vertexShader: document.getElementById('vs').innerHTML,
+         fragmentShader: document.getElementById('fs').innerHTML
+      });
+
+      var group = new THREE.Geometry();
+      n = nodes.length;
+      for (i = 1; i < n; ++i) {
+          var mesh = new THREE.Mesh( geometry, material );
+          THREE.GeometryUtils.merge( group, mesh );
+      }
+      scene.add(new THREE.Mesh( group, material ));
+
+      var rad = 0;
+
+      function render() {
+          requestAnimationFrame(render);
+/*
+          rad += 0.01;
+          x = Math.sin(rad);
+          y = Math.cos(rad);
+          uniforms.uLightNormal.value.set( x, y, 1.0 );
+          group.normalsNeedUpdate = true;
+          console.log( uniforms.uLightNormal );
+*/
+          renderer.render(scene, camera);
+          stats.update();
+          //console.log( "calls:" + renderer.info.render.calls );
+      }
+      render();
+
+      force.on("tick", function(e) {
+        var q = d3.geom.quadtree(nodes),
+            i,
+            d,
+            n = nodes.length;
+
+        for (i = 1; i < n; ++i) q.visit(collide(nodes[i]));
+
+        var iv = 0;
+        var vertices = group.vertices;
+
+        for (i = 1; i < n; ++i) {
+          node = nodes[i];
+
+          r = node.radius;
+          x = node.x - r;
+          y = node.y - r;
+          s = r * 2;
+
+          vertices[iv].x = x; vertices[iv].y = y; y += s; iv++;
+          vertices[iv].x = x; vertices[iv].y = y; x += s; iv++;
+          vertices[iv].x = x; vertices[iv].y = y; y -= s; iv++;
+          vertices[iv].x = x; vertices[iv].y = y;         iv++;
+        }
+        group.verticesNeedUpdate = true;
+      });
+
+      var projector = new THREE.Projector();
+
+      renderer.domElement.onmousemove = function(event) {
+
+        // find the intersection of the mouse position in screen coordinates and world coordinates at z=0
+        var vector = new THREE.Vector3(
+            ( event.clientX / window.innerWidth ) * 2 - 1,
+            - ( event.clientY / window.innerHeight ) * 2 + 1,
+            0.5 );
+        projector.unprojectVector( vector, camera );
+        var dir = vector.sub( camera.position ).normalize();
+        var distance = - camera.position.z / dir.z;
+        var pos = camera.position.clone().add( dir.multiplyScalar( distance ) );
+
+        root.px = pos.x; 
+        root.py = pos.y; 
+        force.resume();
+      };
+
+      function collide(node) {
+        var r = node.radius + 30,
+            nx1 = node.x - r,
+            nx2 = node.x + r,
+            ny1 = node.y - r,
+            ny2 = node.y + r;
+        return function(quad, x1, y1, x2, y2) {
+          if (quad.point && (quad.point !== node)) {
+            var x = node.x - quad.point.x,
+                y = node.y - quad.point.y,
+                l = Math.sqrt(x * x + y * y),
+                r = node.radius + quad.point.radius;
+            if (l < r) {
+              l = (l - r) / l * .5;
+              node.x -= x *= l;
+              node.y -= y *= l;
+              quad.point.x += x;
+              quad.point.y += y;
+            }
+          }
+          return x1 > nx2 || x2 < nx1 || y1 > ny2 || y2 < ny1;
+        };
+      }
+
+      if( window.DeviceOrientationEvent ) {
+        // Listen for the deviceorientation event and handle the raw data
+        window.addEventListener( 'deviceorientation', function(event) {
+          // gamma is the left-to-right tilt in degrees, where right is positive
+          x = Math.sin( event.gamma * Math.PI / 180 );
+
+          // beta is the front-to-back tilt in degrees, where front is positive
+          y = Math.sin( event.gamma * Math.PI / 180 );
+
+          uniforms.uLightNormal.value.set( x, y, 1.0 );
+          group.normalsNeedUpdate = true;
+
+          // alpha is the compass direction the device is facing in degrees
+          //var dir = eventData.alpha
+
+        }, false);
+      }
+
+
+		</script>
+	</body>
+</html>
