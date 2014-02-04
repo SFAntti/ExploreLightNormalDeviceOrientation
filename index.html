@@ -250,7 +250,7 @@
         // Listen for the deviceorientation event and handle the raw data
         window.addEventListener( 'deviceorientation', function(event) {
           // gamma is the left-to-right tilt in degrees, where right is positive
-          x = Math.sin( event.gamma * Math.PI / 180 );
+          x = -Math.sin( event.gamma * Math.PI / 180 );
 
           // beta is the front-to-back tilt in degrees, where front is positive
           y = Math.sin( event.beta * Math.PI / 180 );
