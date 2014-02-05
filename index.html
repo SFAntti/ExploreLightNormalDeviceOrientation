@@ -257,7 +257,7 @@
 
           z = 1.0 - ( x * x ) - ( y * y );
 
-          uniforms.uLightNormal.value.set( x, y, 1.0 );
+          uniforms.uLightNormal.value.set( x, y, z );
           group.normalsNeedUpdate = true;
 
           // alpha is the compass direction the device is facing in degrees
